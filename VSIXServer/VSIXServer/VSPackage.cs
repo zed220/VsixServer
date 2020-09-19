@@ -16,8 +16,10 @@ namespace VSIXServer {
     [InstalledProductRegistration("Zed project", "Demonstrates Zed project", "1.0")]
     //[ProvideAutoLoad(VSConstants.UICONTEXT.SolutionOpening_string, PackageAutoLoadFlags.BackgroundLoad)]
     class VSPackage : AsyncPackage {
+        const string serverAddress = "http://localhost:8080/vsix";
+
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress) {
-            var server = new WebServer("http://localhost:8080/vsix", Responce);
+            var server = new WebServer(serverAddress, Responce);
             server.Run();
             //if (await IsSolutionLoadedAsync())
             //    HandleOpenSolution();
