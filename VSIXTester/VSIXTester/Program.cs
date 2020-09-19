@@ -12,10 +12,20 @@ namespace VSIXTester {
         const string serverAddress = "http://localhost:8080/vsix/";
 
         static void Main(string[] args) {
-            var result = PostCallAPI(new VsixSend(ActionType.AddFile)).GetAwaiter().GetResult();
+            var result = PostCallAPI(new VsixSend(ActionType.ListProjects, new List<string>())).GetAwaiter().GetResult();
+            Console.WriteLine("Loaded projects:");
+            foreach (var p in result.Result.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries)) {
+                Console.WriteLine(p);
+            }
+            Console.WriteLine("Adding file: sample.sam with custom content");
+            result = PostCallAPI(new VsixSend(ActionType.AddFile, new List<string>() { "sample.sam", "I am custom content" })).GetAwaiter().GetResult();
+            if(Convert.ToBoolean(result.Result))
+                Console.WriteLine("File added");
+            else
+                Console.WriteLine("Cannot add file");
         }
 
-        static async Task<object> PostCallAPI(VsixSend jsonObject) {
+        static async Task<VsixResponse> PostCallAPI(VsixSend jsonObject) {
             try {
                 using (HttpClient client = new HttpClient()) {
                     var content = new StringContent(JsonConvert.SerializeObject(jsonObject), Encoding.UTF8, "application/json");
