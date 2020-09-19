@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using CommonLib;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Events;
@@ -13,24 +14,28 @@ namespace VSIXServer {
     [Guid("3E4AFF63-D03E-4580-BB52-4DC01E33C92F")]
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [InstalledProductRegistration("Zed project", "Demonstrates Zed project", "1.0")]
-    [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionOpening_string, PackageAutoLoadFlags.BackgroundLoad)]
+    //[ProvideAutoLoad(VSConstants.UICONTEXT.SolutionOpening_string, PackageAutoLoadFlags.BackgroundLoad)]
     class VSPackage : AsyncPackage {
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress) {
-            if (await IsSolutionLoadedAsync())
-                HandleOpenSolution();
-
-            // Listen for subsequent solution events
-            SolutionEvents.OnAfterBackgroundSolutionLoadComplete += HandleOpenSolution;
+            var server = new WebServer("http://localhost:8080/vsix", Responce);
+            server.Run();
+            //if (await IsSolutionLoadedAsync())
+            //    HandleOpenSolution();
+            //SolutionEvents.OnAfterBackgroundSolutionLoadComplete += HandleOpenSolution;
         }
 
-        private async Task<bool> IsSolutionLoadedAsync() {
-            await JoinableTaskFactory.SwitchToMainThreadAsync();
-            var solService = await GetServiceAsync(typeof(SVsSolution)) as IVsSolution;
-
-            ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
-
-            return value is bool isSolOpen && isSolOpen;
+        VsixResponse Responce(VsixSend message) {
+            return new VsixResponse(true);
         }
+
+        //async Task<bool> IsSolutionLoadedAsync() {
+        //    await JoinableTaskFactory.SwitchToMainThreadAsync();
+        //    var solService = await GetServiceAsync(typeof(SVsSolution)) as IVsSolution;
+
+        //    ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
+
+        //    return value is bool isSolOpen && isSolOpen;
+        //}
 
         async void HandleOpenSolution(object sender = null, EventArgs e = null) {
             await JoinableTaskFactory.SwitchToMainThreadAsync();
