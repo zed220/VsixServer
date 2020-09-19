@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace VSIXTester {
     class Program {
-        const string serverAddress = "http://localhost:8080/vsix";
+        const string serverAddress = "http://localhost:8000/vsix";
 
         static void Main(string[] args) {
             var result = PostCallAPI(new VsixSend(ActionType.AddFile)).GetAwaiter().GetResult();
