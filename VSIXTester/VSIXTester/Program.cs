@@ -23,6 +23,12 @@ namespace VSIXTester {
                 Console.WriteLine("File added");
             else
                 Console.WriteLine("Cannot add file");
+            Console.WriteLine("Adding dll reference: Accessibility");
+            result = PostCallAPI(new VsixSend(ActionType.AddReference, new List<string>() { "Accessibility" })).GetAwaiter().GetResult();
+            if (Convert.ToBoolean(result.Result))
+                Console.WriteLine("Reference added");
+            else
+                Console.WriteLine("Cannot add reference");
         }
 
         static async Task<VsixResponse> PostCallAPI(VsixSend jsonObject) {
