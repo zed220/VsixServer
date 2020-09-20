@@ -26,12 +26,12 @@ namespace VSIXServer {
             try {
                 while (_listener.IsListening) {
                     await Task.Run<Task>(async () => {
-                        var ctx = _listener.GetContext() as HttpListenerContext;
+                        var ctx = await _listener.GetContextAsync();
                         try {
                             if (ctx == null)
                                 return;
                             using (var reader = new StreamReader(ctx.Request.InputStream, ctx.Request.ContentEncoding)) {
-                                var request = reader.ReadToEnd();
+                                var request = await reader.ReadToEndAsync();
                                 var obj = JsonConvert.DeserializeObject<VsixSend>(request);
                                 var content = JsonConvert.SerializeObject(await _responce(obj));
                                 ctx.Response.ContentLength64 = content.Length;
@@ -43,8 +43,7 @@ namespace VSIXServer {
                         catch {
                         }
                         finally {
-                            if (ctx != null)
-                                ctx.Response.OutputStream.Close();
+                            ctx?.Response.OutputStream.Close();
                         }
                     });
                 }

@@ -30,8 +30,8 @@ namespace VSIXServer {
                 case ActionType.ListProjects: return new VsixResponse(string.Join(",", await GetAllProjectsAsync()));
                 case ActionType.AddFile: return new VsixResponse((await AddFileAsync(message.Parameters[0], message.Parameters[1])).ToString());
                 case ActionType.AddReference: return new VsixResponse((await AddReferenceAsync(message.Parameters[0])).ToString());
+                default: throw new ArgumentOutOfRangeException();
             }
-            return new VsixResponse(true.ToString());
         }
 
         async Task<EnvDTE.DTE> PrepareEnvironment() {
@@ -45,7 +45,7 @@ namespace VSIXServer {
         async Task<List<string>> GetAllProjectsAsync() {
             var dte = await PrepareEnvironment();
             var result = new List<string>();
-            for (int p = 1; p <= dte.Solution.Projects.Count; p++) {
+            for (var p = 1; p <= dte.Solution.Projects.Count; p++) {
                 var project = dte.Solution.Projects.Item(p);
                 result.Add(project.Name);
             }
@@ -54,7 +54,7 @@ namespace VSIXServer {
         async Task<bool> AddFileAsync(string fileName, string content) {
             var dte = await PrepareEnvironment();
             var project = dte.Solution.Projects.Item(1);
-            for (int f = 1; f <= project.ProjectItems.Count; f++) {
+            for (var f = 1; f <= project.ProjectItems.Count; f++) {
                 var file = project.ProjectItems.Item(f);
                 if (file.Name == fileName)
                     return false;
@@ -69,13 +69,13 @@ namespace VSIXServer {
             }
             dte.ActiveDocument.Close(EnvDTE.vsSaveChanges.vsSaveChangesYes);
             project.Save();
-            for (int i = 1; i <= project.ProjectItems.Count; i++) {
+            for (var i = 1; i <= project.ProjectItems.Count; i++) {
                 var item = project.ProjectItems.Item(i);
                 if (item.Name == fileName) {
-                    for (int p = 1; p <= item.Properties.Count; p++) {
+                    for (var p = 1; p <= item.Properties.Count; p++) {
                         var property = item.Properties.Item(p);
                         if (property.Name == "FullPath") {
-                            System.IO.File.WriteAllText(property.Value.ToString(), "Some text");
+                            System.IO.File.WriteAllText(property.Value.ToString(), content);
                             return true;
                         }
                     }
@@ -88,12 +88,13 @@ namespace VSIXServer {
             var dte = await PrepareEnvironment();
             var project = dte.Solution.Projects.Item(1);
             var p = (VSProject)project.Object;
-            for (int r = 1; r <= p.References.Count; r++) {
+            for (var r = 1; r <= p.References.Count; r++) {
                 var reference = p.References.Item(r);
                 if (reference.Path == referencePath)
                     return false;
             }
             p.References.Add(referencePath);
+            project.Save();
             return true;
         }
     }

@@ -11,7 +11,7 @@ namespace VSIXTester {
     static class TestHelper {
         const string serverAddress = "http://localhost:8080/vsix/";
 
-        public async static Task DoWithConsoleLogAsync(string messageStart, Func<VsixSend> func, Func<VsixResponse, string> getMessageComplete, string messageError) {
+        public static async Task DoWithConsoleLogAsync(string messageStart, Func<VsixSend> func, Func<VsixResponse, string> getMessageComplete, string messageError) {
             Console.WriteLine(messageStart);
             try {
                 var result = await DoWithServerAsync(func());
@@ -34,7 +34,7 @@ namespace VSIXTester {
                     return JsonConvert.DeserializeObject<VsixResponse>(jsonString);
                 }
             }
-            throw new HttpRequestException("Empty responce");
+            throw new HttpRequestException("Empty response");
         }
     }
 }

@@ -40,17 +40,17 @@ namespace VSIXTester {
             await TestHelper.DoWithConsoleLogAsync(
                 "Adding file: sample.sam with custom content:",
                 () => new VsixSend(ActionType.AddFile, new List<string>() { fileName, content }),
-                r => {
-                    return Convert.ToBoolean(r.Result) ? $"File {fileName} added." : $"Cannot add file {fileName}.";
-                }, $"Cannot add file {fileName} or modify it`s content.");
+                r => 
+                    Convert.ToBoolean(r.Result) ? $"File {fileName} added." : $"Cannot add file {fileName}.", 
+                $"Cannot add file {fileName} or modify it`s content.");
         }
         static async Task AddReferenceAsync(string referencePath) {
             await TestHelper.DoWithConsoleLogAsync(
                 $"Adding dll reference {referencePath}:",
                 () => new VsixSend(ActionType.AddReference, new List<string>() { referencePath }),
-                r => {
-                    return Convert.ToBoolean(r.Result) ? $"Reference {referencePath} added." : $"Cannot add reference {referencePath}.";
-                }, $"Cannot add reference {referencePath}.");
+                r => 
+                    Convert.ToBoolean(r.Result) ? $"Reference {referencePath} added." : $"Cannot add reference {referencePath}.", 
+                $"Cannot add reference {referencePath}.");
         }
     }
 }
