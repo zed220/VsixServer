@@ -21,24 +21,29 @@ namespace VSIXServer {
     public sealed class VSPackage : AsyncPackage {
         const string serverAddress = "http://localhost:8080/vsix/";
 
-        protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress) {
-            var server = new WebServer(serverAddress, Responce);
-            server.Run();
+        public VSPackage() {
+            new HttpServerLite(serverAddress, Responce).Start();
         }
 
-        VsixResponse Responce(VsixSend message) {
+        async Task<VsixResponse> Responce(VsixSend message) {
             switch (message.ActionType) {
-                case ActionType.ListProjects: return new VsixResponse(string.Join(",", GetAllProjects().GetAwaiter().GetResult()));
-                case ActionType.AddFile: return new VsixResponse(AddFile(message.Parameters[0], message.Parameters[1]).GetAwaiter().GetResult().ToString());
-                case ActionType.AddReference: return new VsixResponse(AddReference(message.Parameters[0]).GetAwaiter().GetResult().ToString());
+                case ActionType.ListProjects: return new VsixResponse(string.Join(",", await GetAllProjectsAsync()));
+                case ActionType.AddFile: return new VsixResponse((await AddFileAsync(message.Parameters[0], message.Parameters[1])).ToString());
+                case ActionType.AddReference: return new VsixResponse((await AddReferenceAsync(message.Parameters[0])).ToString());
             }
-            return new VsixResponse("true");
+            return new VsixResponse(true.ToString());
         }
-        async Task<List<string>> GetAllProjects() {
+
+        async Task<EnvDTE.DTE> PrepareEnvironment() {
             await JoinableTaskFactory.SwitchToMainThreadAsync();
             var solService = await GetServiceAsync(typeof(SVsSolution)) as IVsSolution;
             ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
-            var dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            return await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+        }
+
+
+        async Task<List<string>> GetAllProjectsAsync() {
+            var dte = await PrepareEnvironment();
             var result = new List<string>();
             for (int p = 1; p <= dte.Solution.Projects.Count; p++) {
                 var project = dte.Solution.Projects.Item(p);
@@ -46,11 +51,8 @@ namespace VSIXServer {
             }
             return result;
         }
-        async Task<bool> AddFile(string fileName, string content) {
-            await JoinableTaskFactory.SwitchToMainThreadAsync();
-            var solService = await GetServiceAsync(typeof(SVsSolution)) as IVsSolution;
-            ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
-            var dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+        async Task<bool> AddFileAsync(string fileName, string content) {
+            var dte = await PrepareEnvironment();
             var project = dte.Solution.Projects.Item(1);
             for (int f = 1; f <= project.ProjectItems.Count; f++) {
                 var file = project.ProjectItems.Item(f);
@@ -59,24 +61,38 @@ namespace VSIXServer {
             }
             var solution2 = (EnvDTE80.Solution2)dte.Solution;
             var projectItemTemplate = solution2.GetProjectItemTemplate("Text File", "CSharp");
-            project.ProjectItems.AddFromTemplate(projectItemTemplate, fileName);
+            try {
+                project.ProjectItems.AddFromTemplate(projectItemTemplate, fileName);
+            }
+            catch {
+                return false;
+            }
             dte.ActiveDocument.Close(EnvDTE.vsSaveChanges.vsSaveChangesYes);
-            for (int f = 1; f <= project.ProjectItems.Count; f++) {
-                var file = project.ProjectItems.Item(f);
-                if (file.Name == fileName) {
-                    System.IO.File.WriteAllText(file.Properties.Item(18).Value.ToString(), "Some text");
-                    break;
+            project.Save();
+            for (int i = 1; i <= project.ProjectItems.Count; i++) {
+                var item = project.ProjectItems.Item(i);
+                if (item.Name == fileName) {
+                    for (int p = 1; p <= item.Properties.Count; p++) {
+                        var property = item.Properties.Item(p);
+                        if (property.Name == "FullPath") {
+                            System.IO.File.WriteAllText(property.Value.ToString(), "Some text");
+                            return true;
+                        }
+                    }
+                    return false;
                 }
             }
-            return true;
+            return false;
         }
-        async Task<bool> AddReference(string referencePath) {
-            await JoinableTaskFactory.SwitchToMainThreadAsync();
-            var solService = await GetServiceAsync(typeof(SVsSolution)) as IVsSolution;
-            ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
-            var dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+        async Task<bool> AddReferenceAsync(string referencePath) {
+            var dte = await PrepareEnvironment();
             var project = dte.Solution.Projects.Item(1);
             var p = (VSProject)project.Object;
+            for (int r = 1; r <= p.References.Count; r++) {
+                var reference = p.References.Item(r);
+                if (reference.Path == referencePath)
+                    return false;
+            }
             p.References.Add(referencePath);
             return true;
         }
