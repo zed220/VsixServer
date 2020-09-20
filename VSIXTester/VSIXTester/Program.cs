@@ -9,42 +9,48 @@ using System.Threading.Tasks;
 
 namespace VSIXTester {
     class Program {
-        const string serverAddress = "http://localhost:8080/vsix/";
+        const string _FileName = "sample.sam";
+        const string _FileContent = @"I am custom content";
+        const string _ReferencePath = "Accessibility";
 
         static void Main(string[] args) {
-            var result = PostCallAPI(new VsixSend(ActionType.ListProjects, new List<string>())).GetAwaiter().GetResult();
-            Console.WriteLine("Loaded projects:");
-            foreach (var p in result.Result.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries)) {
-                Console.WriteLine(p);
-            }
-            Console.WriteLine("Adding file: sample.sam with custom content");
-            result = PostCallAPI(new VsixSend(ActionType.AddFile, new List<string>() { "sample.sam", "I am custom content" })).GetAwaiter().GetResult();
-            if(Convert.ToBoolean(result.Result))
-                Console.WriteLine("File added");
-            else
-                Console.WriteLine("Cannot add file");
-            Console.WriteLine("Adding dll reference: Accessibility");
-            result = PostCallAPI(new VsixSend(ActionType.AddReference, new List<string>() { "Accessibility" })).GetAwaiter().GetResult();
-            if (Convert.ToBoolean(result.Result))
-                Console.WriteLine("Reference added");
-            else
-                Console.WriteLine("Cannot add reference");
+            MainAsync().GetAwaiter().GetResult();
+            Console.ReadKey();
         }
 
-        static async Task<VsixResponse> PostCallAPI(VsixSend jsonObject) {
-            try {
-                using (HttpClient client = new HttpClient()) {
-                    var content = new StringContent(JsonConvert.SerializeObject(jsonObject), Encoding.UTF8, "application/json");
-                    var response = await client.PostAsync(serverAddress, content);
-                    if (response != null) {
-                        var jsonString = await response.Content.ReadAsStringAsync();
-                        return JsonConvert.DeserializeObject<VsixResponse>(jsonString);
-                    }
-                }
-            }
-            catch (Exception ex) {
-            }
-            return null;
+        static async Task MainAsync() {
+            await LoadProjectsListAsync();
+            await AddFileAndModifyContentAsync(_FileName, _FileContent);
+            await AddReferenceAsync(_ReferencePath);
+        }
+
+        static async Task LoadProjectsListAsync() {
+            await TestHelper.DoWithConsoleLogAsync(
+                "Start loading projects:",
+                () => new VsixSend(ActionType.ListProjects, new List<string>()),
+                r => {
+                    var sb = new StringBuilder();
+                    sb.AppendLine("Loaded projects:");
+                    foreach (var p in r.Result.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries))
+                        sb.AppendLine(p);
+                    return sb.ToString();
+                }, "Loading projects failed.");
+        }
+        static async Task AddFileAndModifyContentAsync(string fileName, string content) {
+            await TestHelper.DoWithConsoleLogAsync(
+                "Adding file: sample.sam with custom content:",
+                () => new VsixSend(ActionType.AddFile, new List<string>() { fileName, content }),
+                r => {
+                    return Convert.ToBoolean(r.Result) ? $"File {fileName} added." : $"Cannot add file {fileName}.";
+                }, $"Cannot add file {fileName} or modify it`s content.");
+        }
+        static async Task AddReferenceAsync(string referencePath) {
+            await TestHelper.DoWithConsoleLogAsync(
+                $"Adding dll reference {referencePath}:",
+                () => new VsixSend(ActionType.AddReference, new List<string>() { referencePath }),
+                r => {
+                    return Convert.ToBoolean(r.Result) ? $"Reference {referencePath} added." : $"Cannot add reference {referencePath}.";
+                }, $"Cannot add reference {referencePath}.");
         }
     }
 }
