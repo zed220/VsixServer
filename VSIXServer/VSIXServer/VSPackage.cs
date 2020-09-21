@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,24 +43,27 @@ namespace VSIXServer {
             return await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
         }
 
-
         async Task<List<string>> GetAllProjectsAsync() {
             var dte = await PrepareEnvironment();
             var result = new List<string>();
-            for (var p = 1; p <= dte.Solution.Projects.Count; p++) {
-                var project = dte.Solution.Projects.Item(p);
-                result.Add(project.Name);
-            }
+            dte.GetProjects().Select(p => p.Name).ToList().ForEach(result.Add);
             return result;
         }
         async Task<bool> AddFileAsync(string fileName, string content) {
             var dte = await PrepareEnvironment();
-            var project = dte.Solution.Projects.Item(1);
-            for (var f = 1; f <= project.ProjectItems.Count; f++) {
-                var file = project.ProjectItems.Item(f);
-                if (file.Name == fileName)
-                    return false;
-            }
+            var project = dte.GetProjects().FirstOrDefault();
+            if (project == null)
+                return false;
+            var items = project.ProjectItems;
+            var existFile = items.AsGeneric<ProjectItems, ProjectItem>(() => items.Count, items.Item).FirstOrDefault(f => f.Name == fileName);
+            if (existFile != null)
+                return false;
+            if (!TryCreateAndAddFile(dte, project, fileName, out existFile))
+                return false;
+            return WriteFileContent(existFile, content);
+        }
+        bool TryCreateAndAddFile(EnvDTE.DTE dte, Project project, string fileName, out ProjectItem existFile) {
+            existFile = null;
             var solution2 = (EnvDTE80.Solution2)dte.Solution;
             var projectItemTemplate = solution2.GetProjectItemTemplate("Text File", "CSharp");
             try {
@@ -69,31 +74,35 @@ namespace VSIXServer {
             }
             dte.ActiveDocument.Close(EnvDTE.vsSaveChanges.vsSaveChangesYes);
             project.Save();
-            for (var i = 1; i <= project.ProjectItems.Count; i++) {
-                var item = project.ProjectItems.Item(i);
-                if (item.Name == fileName) {
-                    for (var p = 1; p <= item.Properties.Count; p++) {
-                        var property = item.Properties.Item(p);
-                        if (property.Name == "FullPath") {
-                            System.IO.File.WriteAllText(property.Value.ToString(), content);
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-            }
-            return false;
+            var items = project.ProjectItems;
+            existFile = items.AsGeneric<ProjectItems, ProjectItem>(() => items.Count, items.Item).FirstOrDefault(f => f.Name == fileName);
+            return existFile != null;
         }
+        bool WriteFileContent(ProjectItem existFile, string content) {
+            var properties = existFile.Properties;
+            var property = properties.AsGeneric<Properties, Property>(() => properties.Count, properties.Item).FirstOrDefault(p => p.Name == "FullPath");
+            if (property == null)
+                return false;
+            try {
+                System.IO.File.WriteAllText(property.Value.ToString(), content);
+            }
+            catch {
+                return false;
+            }
+            return true;
+        }
+
         async Task<bool> AddReferenceAsync(string referencePath) {
             var dte = await PrepareEnvironment();
-            var project = dte.Solution.Projects.Item(1);
-            var p = (VSProject)project.Object;
-            for (var r = 1; r <= p.References.Count; r++) {
-                var reference = p.References.Item(r);
-                if (reference.Path == referencePath)
-                    return false;
-            }
-            p.References.Add(referencePath);
+            var project = dte.GetProjects().FirstOrDefault();
+            if (project == null)
+                return false;
+            var vsProject = (VSProject)project.Object;
+            var references = vsProject.References;
+            var reference = references.AsGeneric<References, Reference>(() => references.Count, references.Item).FirstOrDefault(r => r.Path == referencePath);
+            if (reference != null)
+                return false;
+            references.Add(referencePath);
             project.Save();
             return true;
         }

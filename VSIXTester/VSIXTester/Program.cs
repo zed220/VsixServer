@@ -11,10 +11,11 @@ namespace VSIXTester {
     class Program {
         const string _FileName = "sample.sam";
         const string _FileContent = @"I am custom content";
-        const string _ReferencePath = "Accessibility";
+        const string _ReferencePath = @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.1\Accessibility.dll";
 
         static void Main(string[] args) {
             MainAsync().GetAwaiter().GetResult();
+            Console.WriteLine("\npress any key to exit the process...");
             Console.ReadKey();
         }
 
